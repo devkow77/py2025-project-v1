@@ -89,5 +89,24 @@ class TemperatureSensor(Sensor):
         if self.reading_thread:
             self.reading_thread.join()
 
+if __name__ == '__main__':
+    tempSensor = TemperatureSensor()
+    tempSensor2 = TemperatureSensor(name="Temperature Sensor 2", frequency=2)
+
+    # wyswietlenie argumentow klas (automatyczna aktualizacja id)
+    print(tempSensor.__str__())
+    print(tempSensor2.__str__())
+
+    # tempSensor2.start_reading() # wyrzucenie Exception: Sensor Temperature Sensor 2 is off.
+
+    # wlaczenie i odczytywanie pomiarow temperatury, po 5s zakoncz pomiary i wylacz czujnik
+    tempSensor2.start()
+    tempSensor2.start_reading()
+
+    time.sleep(5)
+
+    tempSensor2.stop_reading()
+    tempSensor2.stop()
+
 
 
