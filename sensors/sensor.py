@@ -48,7 +48,7 @@ class Sensor:
         if self.last_value is None:
             return self.read_value()
 
-        return f"{self.last_value}{self.unit}"
+        return self.last_value
 
     # funkcja uruchamiajaca sensor
     def start(self):
