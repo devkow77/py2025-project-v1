@@ -14,13 +14,13 @@ class HumiditySensor(Sensor):
         self.temperature_dependency = True
 
     # funkcja ktora odczytuje wilgotnosc na podstawie temperatury
-    def read_loop(self, temperature = None, delay=0):
+    def read_loop(self, temp_sensor = None, delay=0):
         interval = 1 / self.frequency
 
         while not self.stop_thread:
             now = datetime.now()
             # tymczasowa wartosc, pobieranie z temperature_sensor ostatecznie
-            temperature = temperature if temperature else 20
+            temperature = temp_sensor.get_last_value() if temp_sensor else 20
             # korekta wilgotnosci na podstawie temperatury
             adjustment = np.clip((30 - temperature) * 1.5, 0, 100) if self.temperature_dependency else 0
 
@@ -31,17 +31,17 @@ class HumiditySensor(Sensor):
             self.last_read_time = now
 
             print(f"{now.strftime("%Y-%m-%d %H:%M:%S")} = {value}{self.unit}")
-            time.sleep(interval + delay)
+            time.sleep(interval)
 
     # funkcja ktora uruchamia watek z odczytywaniem wilgotnosci
-    def start_reading(self, temperature=None, delay=0):
+    def start_reading(self, temp_sensor=None, delay=0):
+        time.sleep(delay)
         if not self.active:
             raise Exception(f"Sensor {self.name} is off.")
         if self.reading_thread and self.reading_thread.is_alive():
             return
-
         self.stop_thread = False
-        self.reading_thread = threading.Thread(target=self.read_loop, args=(temperature, delay))
+        self.reading_thread = threading.Thread(target=self.read_loop, args=(temp_sensor, delay))
         self.reading_thread.start()
 
     # funkcja wylaczenia watku z odczytywaniem wilgotnosci
@@ -65,8 +65,9 @@ if __name__ == '__main__':
     # wlaczenie czujnika wilgotnosci i temperatur, odczytywanie pomiarow , po 5s zakoncz pomiary i wylacz oba czujniki
     tempSensor.start()
     humiditySensor2.start()
+
     tempSensor.start_reading()
-    humiditySensor2.start_reading(temperature=tempSensor.get_last_value())
+    humiditySensor2.start_reading(temp_sensor=tempSensor, delay=0.1)
 
     time.sleep(5)
 
@@ -74,4 +75,6 @@ if __name__ == '__main__':
     tempSensor.stop_reading()
     humiditySensor2.stop()
     tempSensor.stop()
+
+
 

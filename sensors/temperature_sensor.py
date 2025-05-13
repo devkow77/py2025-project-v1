@@ -67,8 +67,9 @@ class TemperatureSensor(Sensor):
             self.last_value = value
             self.last_read_time = now
 
-            print(f"{now.strftime('%Y-%m-%d %H:%M:%S')} = {value}{self.unit}")
+            print(f"{now.strftime('%Y-%m-%d %H:%M:%S')} = {self.last_value}{self.unit}")
             time.sleep(interval)
+
 
     # funkcja ktora uruchamia watek z odczytywaniem temperatur
     def start_reading(self):
@@ -107,6 +108,7 @@ if __name__ == '__main__':
 
     tempSensor2.stop_reading()
     tempSensor2.stop()
+
 
 
 
