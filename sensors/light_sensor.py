@@ -1,3 +1,4 @@
+from typing import override
 from sensors.sensor import Sensor
 from datetime import datetime
 import threading
@@ -7,8 +8,6 @@ import numpy as np
 class LightSensor(Sensor):
     def __init__(self, name="Light Sensor", unit="lx", min_value=0, max_value=10000, frequency=1):
         super().__init__(name, unit, min_value, max_value, frequency)
-        self.reading_thread = None
-        self.stop_thread = False
 
         # zakres lumenow w zaleznosci od pory dnia
         self.light_ranges = {
@@ -26,22 +25,25 @@ class LightSensor(Sensor):
         else:
             return 'evening'
 
+    @override
+    def read_value(self):
+        now = datetime.now()
+        part_of_day = self.get_part_of_day(now.hour)
+
+        light_min, light_max = self.light_ranges[part_of_day]
+        value = round(np.random.uniform(light_min, light_max), 1)
+
+        self.last_value = value
+        self.last_read_time = now
+
+        print(f"{now.strftime('%Y-%m-%d %H:%M:%S')} = {self.last_value}{self.unit}")
+
     # funkcja ktora odczytuje ilosc lumenow
     def read_loop(self):
         interval = 1 / self.frequency
         while not self.stop_tread:
-            now = datetime.now()
-            part_of_day = self.get_part_of_day(now.hour)
-
-            light_min, light_max = self.light_ranges[part_of_day]
-            value = round(np.random.uniform(light_min, light_max), 1)
-
-            self.last_value = value
-            self.last_read_time = now
-
-            print(f"{now.strftime('%Y-%m-%d %H:%M:%S')} = {self.last_value}{self.unit}")
+            self.read_value()
             time.sleep(interval)
-
 
     # funkcja ktora uruchamia watek z odczytywaniem temperatur
     def start_reading(self):
@@ -51,6 +53,7 @@ class LightSensor(Sensor):
         # sprawdz czy watek juz istnieje oraz jest aktywny a jezeli tak to nie uruchamiaj po raz drugi.
         if self.reading_thread and self.reading_thread.is_alive():
             return
+
         self.stop_tread = False
         self.reading_thread = threading.Thread(target=self.read_loop)
         self.reading_thread.start()

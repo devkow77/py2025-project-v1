@@ -10,6 +10,10 @@ if __name__ == "__main__":
     pressureSensor = PressureSensor()
     lightSensor = LightSensor()
 
+    humiditySensor.set_temperature_sensor(temperatureSensor)
+    pressureSensor.set_temperature_sensor(temperatureSensor)
+    pressureSensor.set_humidity_sensor(humiditySensor)
+
     sensors = [temperatureSensor, humiditySensor, pressureSensor, lightSensor]
 
     # wlaczenie sensorow
@@ -18,5 +22,5 @@ if __name__ == "__main__":
     # uruchomienie sensorow
     for sensor in sensors:
         sensor.start_reading()
-        time.sleep(0.1)
+        time.sleep(1)
 

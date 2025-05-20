@@ -21,6 +21,8 @@ class Sensor:
         self.last_value = last_value
         self.start_time = start_time
         self.last_read_time = last_read_time
+        self.reading_thread = None
+        self.stop_thread = False
 
     # funkcja wyswietlajaca pomiar temperatury
     def read_value(self):
@@ -62,6 +64,21 @@ class Sensor:
     # funkcja zwracajaca opis sensora
     def __str__(self):
         return f"Sensor(id={self.sensor_id}, name={self.name}, unit={self.unit}, active={self.active})"
+
+if __name__ == "__main__":
+    sensor1 = Sensor(name="Sensor 1", unit="C", min_value=0, max_value=100)
+    sensor2 = Sensor(name="Sensor 2", unit="F", min_value=-35, max_value=150)
+
+    # wyswietlenie argumentow klas (automatyczna aktualizacja id)
+    print(sensor1.__str__())
+    print(sensor2.__str__())
+
+    # sensor1.start_reading() # wyrzucenie Exception: Sensor Sensor 1 is off.
+
+    sensor1.start()
+    for i in range(10):
+        sensor1.read_value()
+
 
 
 

@@ -1,4 +1,6 @@
 from datetime import datetime
+from typing import override
+
 from sensors.sensor import Sensor
 import time
 import numpy as np
@@ -7,8 +9,6 @@ import threading
 class TemperatureSensor(Sensor):
     def __init__(self, name="Temperature Sensor", unit="°C", min_value=-15, max_value=35, frequency=1):
         super().__init__(name, unit, min_value, max_value, frequency)
-        self.reading_thread = None
-        self.stop_thread = None
 
         # zakres temperatur na podstawie pory roku i pory dnia
         self.temperature_ranges = {
@@ -54,20 +54,29 @@ class TemperatureSensor(Sensor):
         else:
             return 'evening'
 
+    @override
+    def read_value(self):
+        if not self.active:
+            raise Exception(f"Sensor {self.name} is off.")
+
+        now = datetime.now()
+        season = self.get_season(now.month)
+        period = self.get_time_period(now.hour)
+
+        temp_min, temp_max = self.temperature_ranges[season][period]
+        value = round(np.random.uniform(temp_min, temp_max))
+
+        self.last_value = value
+        self.last_read_time = now
+
+        print(f"{now.strftime('%Y-%m-%d %H:%M:%S')} = {self.last_value}{self.unit}")
+
+
     # funkcja ktora odczytuje temperature we wskazanej czestotliwosci
     def read_loop(self):
         interval = 1 / self.frequency
         while not self.stop_tread:
-            now = datetime.now()
-            season = self.get_season(now.month)
-            period = self.get_time_period(now.hour)
-
-            temp_min, temp_max = self.temperature_ranges[season][period]
-            value = round(np.random.uniform(temp_min, temp_max), 1)
-            self.last_value = value
-            self.last_read_time = now
-
-            print(f"{now.strftime('%Y-%m-%d %H:%M:%S')} = {self.last_value}{self.unit}")
+            self.read_value()
             time.sleep(interval)
 
 
@@ -92,22 +101,15 @@ class TemperatureSensor(Sensor):
 
 if __name__ == '__main__':
     tempSensor = TemperatureSensor()
-    tempSensor2 = TemperatureSensor(name="Temperature Sensor 2", frequency=2)
-
-    # wyswietlenie argumentow klas (automatyczna aktualizacja id)
-    print(tempSensor.__str__())
-    print(tempSensor2.__str__())
-
-    # tempSensor2.start_reading() # wyrzucenie Exception: Sensor Temperature Sensor 2 is off.
 
     # wlaczenie i odczytywanie pomiarow temperatury, po 5s zakoncz pomiary i wylacz czujnik
-    tempSensor2.start()
-    tempSensor2.start_reading()
+    tempSensor.start()
+    tempSensor.start_reading()
 
     time.sleep(5)
 
-    tempSensor2.stop_reading()
-    tempSensor2.stop()
+    tempSensor.stop_reading()
+    tempSensor.stop()
 
 
 

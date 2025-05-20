@@ -1,4 +1,6 @@
 from datetime import datetime
+from typing import override
+
 from sensors.sensor import Sensor
 import time
 import numpy as np
@@ -10,46 +12,55 @@ from sensors.temperature_sensor import TemperatureSensor
 class PressureSensor(Sensor):
     def __init__(self, name="Pressure Sensor", unit="hPa", min_value=950, max_value=1050, frequency=1):
         super().__init__(name, unit, min_value, max_value, frequency)
-        self.reading_thread = None
-        self.stop_thread = False
         self.temperature_dependency = True
         self.humidity_dependency = True
         self.temperature_sensor = None
         self.humidity_sensor = None
 
+    @override
+    def read_value(self):
+        now = datetime.now()
+
+        # ustaw temperature z czujnika, domyslnie 20
+        temperature = self.temperature_sensor.get_last_value() if self.temperature_sensor else 20
+
+        # ustaw wilgotnosc z czujnika, domyslnie 1000
+        humidity = self.humidity_sensor.get_last_value() if self.humidity_sensor else 1000
+
+        # Korekta ciśnienia na podstawie temperatury i wilgotności
+        adjustment = (temperature - 20) * 0.3 + (humidity - 50) * 0.2
+        base_value = np.random.uniform(self.min_value, self.max_value)
+        value = round(np.clip(base_value + adjustment, self.min_value, self.max_value), 1)
+
+        self.last_value = value
+        self.last_read_time = now
+
+        print(f"{now.strftime('%Y-%m-%d %H:%M:%S')} = {self.last_value}{self.unit}")
+
     # Funkcja do odczytu ciśnienia na podstawie temperatury i wilgotności
-    def read_loop(self, temp_sensor=None, humidity_sensor=None, delay=0):
+    def read_loop(self):
         interval = 1 / self.frequency
-
         while not self.stop_thread:
-            now = datetime.now()
-
-            # ustaw temperature z czujnika, domyslnie 20
-            temperature = temp_sensor.get_last_value() if temp_sensor else 20
-
-            # ustaw wilgotnosc z czujnika, domyslnie 1000
-            humidity = humidity_sensor.get_last_value() if humidity_sensor else 1000
-
-            # Korekta ciśnienia na podstawie temperatury i wilgotności
-            adjustment = (temperature - 20) * 0.3 + (humidity - 50) * 0.2
-            base_value = np.random.uniform(self.min_value, self.max_value)
-            value = round(np.clip(base_value + adjustment, self.min_value, self.max_value), 1)
-
-            self.last_value = value
-            self.last_read_time = now
-
-            print(f"{now.strftime('%Y-%m-%d %H:%M:%S')} = {self.last_value}{self.unit}")
+            self.read_value()
             time.sleep(interval)
 
+    # Funkcja ustawiajaca referencje sensora temperatury
+    def set_temperature_sensor(self, temperature_sensor):
+        self.temperature_sensor = temperature_sensor
+
+    # Funkcja ustawiajaca referencje sensora wilgotnosci
+    def set_humidity_sensor(self, humidity_sensor):
+        self.humidity_sensor = humidity_sensor
+
     # Funkcja uruchamiająca wątek z odczytem ciśnienia
-    def start_reading(self, temp_sensor=None, humidity_sensor=None, delay=0):
-        time.sleep(delay)
+    def start_reading(self):
         if not self.active:
             raise Exception(f"Sensor {self.name} is off.")
         if self.reading_thread and self.reading_thread.is_alive():
             return
+
         self.stop_thread = False
-        self.reading_thread = threading.Thread(target=self.read_loop, args=(temp_sensor, humidity_sensor, delay))
+        self.reading_thread = threading.Thread(target=self.read_loop)
         self.reading_thread.start()
 
     # Funkcja wyłączająca wątek z odczytem ciśnienia
@@ -58,40 +69,31 @@ class PressureSensor(Sensor):
         if self.reading_thread:
             self.reading_thread.join()
 
-    # Metoda umożliwiająca ustawienie czujników temperatury i wilgotności
-    def set_temperature_sensor(self, temp_sensor):
-        self.temperature_sensor = temp_sensor
-
-    def set_humidity_sensor(self, humidity_sensor):
-        self.humidity_sensor = humidity_sensor
-
 
 if __name__ == '__main__':
-    pressureSensor = PressureSensor(frequency=0.5)
-    humiditySensor = HumiditySensor(frequency=0.5)
-    tempSensor = TemperatureSensor(frequency=0.5)
+    tempSensor = TemperatureSensor()
+    humiditySensor = HumiditySensor()
+    pressureSensor = PressureSensor()
 
-    # Ustawiamy czujniki temperatury i wilgotności w PressureSensor
+    humiditySensor.set_temperature_sensor(tempSensor)
     pressureSensor.set_temperature_sensor(tempSensor)
     pressureSensor.set_humidity_sensor(humiditySensor)
 
-    # Włączenie czujników i rozpoczęcie odczytu
-    tempSensor.start()
-    humiditySensor.start()
-    pressureSensor.start()
+    sensors = [tempSensor, humiditySensor, pressureSensor]
 
-    tempSensor.start_reading()
-    humiditySensor.start_reading(temp_sensor=tempSensor, delay=0.1)
-    pressureSensor.start_reading(temp_sensor=tempSensor, humidity_sensor=humiditySensor, delay=0.2)
+    # Włączenie czujników
+    for s in sensors:
+        s.start()
+
+    # Wlaczenie odczytu
+    for s in sensors:
+        s.start_reading()
+        time.sleep(1)
 
     time.sleep(10)
 
     # Zakończenie odczytów
-    pressureSensor.stop_reading()
-    humiditySensor.stop_reading()
-    tempSensor.stop_reading()
-
-    pressureSensor.stop()
-    humiditySensor.stop()
-    tempSensor.stop()
+    for s in sensors:
+        s.stop_reading()
+        s.stop()
 
