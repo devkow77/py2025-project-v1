@@ -5,13 +5,19 @@ import time
 import numpy as np
 import threading
 from sensors.temperature_sensor import TemperatureSensor
+from logger.logger import Logger
 
 
 class HumiditySensor(Sensor):
-    def __init__(self, name="Humidity Sensor", unit="%", min_value=0, max_value=100, frequency=1):
+    def __init__(self, name="Humidity Sensor", unit="%", min_value=0, max_value=100, frequency=1, logger=None):
         super().__init__(name, unit, min_value, max_value, frequency)
         self.temperature_dependency = True
         self.temperature_sensor = None
+
+        self.logger = logger
+        if self.logger:
+            # self.logger.set_sensor_context(self.sensor_id, self.name, self.unit)
+            self.register_callback(self.logger.log_reading)
 
     @override
     def read_value(self):
@@ -19,10 +25,7 @@ class HumiditySensor(Sensor):
             raise Exception(f"Sensor {self.name} is off.")
 
         now = datetime.now()
-        # tymczasowa wartosc, pobieranie z temperature_sensor ostatecznie
         temperature = self.temperature_sensor.get_last_value() if self.temperature_sensor else 20
-
-        # korekta wilgotnosci na podstawie temperatury
         adjustment = np.clip((30 - temperature) * 1.5, 0, 100) if self.temperature_dependency else 0
 
         base_value = np.random.uniform(40, 70)
@@ -31,7 +34,10 @@ class HumiditySensor(Sensor):
         self.last_value = value
         self.last_read_time = now
 
-        print(f"{now.strftime("%Y-%m-%d %H:%M:%S")} = {value}{self.unit}")
+        for callback in self._callbacks:
+            callback(self.sensor_id, now, self.last_value, self.unit)
+
+        print(f"{now.strftime('%Y-%m-%d %H:%M:%S')} = {value}{self.unit}")
 
     # funkcja ktora odczytuje wilgotnosc na podstawie temperatury
     def read_loop(self):
@@ -62,8 +68,9 @@ class HumiditySensor(Sensor):
 
 
 if __name__ == '__main__':
+    logger = Logger("../config.json")
     tempSensor = TemperatureSensor()
-    humiditySensor = HumiditySensor()
+    humiditySensor = HumiditySensor(logger=logger)
     humiditySensor.set_temperature_sensor(tempSensor)
 
     # wlaczenie czujnika wilgotnosci i temperatur, odczytywanie pomiarow , po 5s zakoncz pomiary i wylacz oba czujniki
@@ -74,7 +81,7 @@ if __name__ == '__main__':
     time.sleep(1)
     humiditySensor.start_reading()
 
-    time.sleep(5)
+    time.sleep(10)
 
     humiditySensor.stop_reading()
     tempSensor.stop_reading()

@@ -1,21 +1,26 @@
 from datetime import datetime
 from typing import override
-
 from sensors.sensor import Sensor
 import time
 import numpy as np
 import threading
 from sensors.humidity_sensor import HumiditySensor
 from sensors.temperature_sensor import TemperatureSensor
+from logger.logger import Logger
 
 
 class PressureSensor(Sensor):
-    def __init__(self, name="Pressure Sensor", unit="hPa", min_value=950, max_value=1050, frequency=1):
+    def __init__(self, name="Pressure Sensor", unit="hPa", min_value=950, max_value=1050, frequency=1, logger = None):
         super().__init__(name, unit, min_value, max_value, frequency)
         self.temperature_dependency = True
         self.humidity_dependency = True
         self.temperature_sensor = None
         self.humidity_sensor = None
+
+        self.logger = logger
+        if self.logger:
+            # self.logger.set_sensor_context(self.sensor_id, self.name, self.unit)
+            self.register_callback(self.logger.log_reading)
 
     @override
     def read_value(self):
@@ -34,6 +39,9 @@ class PressureSensor(Sensor):
 
         self.last_value = value
         self.last_read_time = now
+
+        for callback in self._callbacks:
+            callback(self.sensor_id, now, self.last_value, self.unit)
 
         print(f"{now.strftime('%Y-%m-%d %H:%M:%S')} = {self.last_value}{self.unit}")
 
@@ -71,9 +79,10 @@ class PressureSensor(Sensor):
 
 
 if __name__ == '__main__':
+    logger = Logger("../config.json")
     tempSensor = TemperatureSensor()
     humiditySensor = HumiditySensor()
-    pressureSensor = PressureSensor()
+    pressureSensor = PressureSensor(logger=logger)
 
     humiditySensor.set_temperature_sensor(tempSensor)
     pressureSensor.set_temperature_sensor(tempSensor)

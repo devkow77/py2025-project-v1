@@ -4,10 +4,16 @@ from datetime import datetime
 import threading
 import time
 import numpy as np
+from logger.logger import Logger
 
 class LightSensor(Sensor):
-    def __init__(self, name="Light Sensor", unit="lx", min_value=0, max_value=10000, frequency=1):
+    def __init__(self, name="Light Sensor", unit="lx", min_value=0, max_value=10000, frequency=1, logger = None):
         super().__init__(name, unit, min_value, max_value, frequency)
+
+        self.logger = logger
+        if self.logger:
+            # self.logger.set_sensor_context(self.sensor_id, self.name, self.unit)
+            self.register_callback(self.logger.log_reading)
 
         # zakres lumenow w zaleznosci od pory dnia
         self.light_ranges = {
@@ -35,6 +41,9 @@ class LightSensor(Sensor):
 
         self.last_value = value
         self.last_read_time = now
+
+        for callback in self._callbacks:
+            callback(self.sensor_id, now, self.last_value, self.unit)
 
         print(f"{now.strftime('%Y-%m-%d %H:%M:%S')} = {self.last_value}{self.unit}")
 
@@ -66,7 +75,8 @@ class LightSensor(Sensor):
             self.reading_thread.join()
 
 if __name__ == "__main__":
-    lightSensor = LightSensor()
+    logger = Logger("../config.json")
+    lightSensor = LightSensor(logger=logger)
 
     # Włączenie czujników i rozpoczęcie odczytu
     lightSensor.start()

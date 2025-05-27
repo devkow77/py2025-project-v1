@@ -2,12 +2,16 @@ import numpy as np
 from datetime import datetime
 
 class Sensor:
-    # automatyczne id
-    _id_counter = 1
+    _type_counters = {}  # Liczniki osobno dla każdego typu sensora
 
-    def __init__(self, name, unit, min_value, max_value, frequency=1, active=False, last_value=None, start_time = None, last_read_time=None):
-        self.sensor_id = Sensor._id_counter
-        Sensor._id_counter += 1
+    def __init__(self, name, unit, min_value, max_value, frequency=1, active=False, last_value=None, start_time=None, last_read_time=None, logger=None):
+        cls = self.__class__
+        if cls not in Sensor._type_counters:
+            Sensor._type_counters[cls] = 1
+        else:
+            Sensor._type_counters[cls] += 1
+
+        self.sensor_id = Sensor._type_counters[cls]
 
         if frequency > 10:
             raise Exception("Maximum frequency is 10Hz!")
@@ -23,8 +27,14 @@ class Sensor:
         self.last_read_time = last_read_time
         self.reading_thread = None
         self.stop_thread = False
+        self._callbacks = []
 
-    # funkcja wyswietlajaca pomiar temperatury
+        self.logger = logger
+        if self.logger:
+            self.logger.set_sensor_context(self.sensor_id, self.name, self.unit)
+            self.logger.start()
+            self.register_callback(self.logger.log_reading)
+
     def read_value(self):
         if not self.active:
             raise Exception(f"Sensor {self.name} is off.")
@@ -35,51 +45,35 @@ class Sensor:
         self.last_value = value
         self.last_read_time = now
 
-        print(f"{now.strftime("%Y-%m-%d %H:%M:%S")} = {value}{self.unit}")
+        for callback in self._callbacks:
+            callback(self.sensor_id, now, value, self.unit)
 
-    # funkcja kalibrujaca wynik
+        print(f"{now.strftime('%Y-%m-%d %H:%M:%S')} = {value}{self.unit}")
+
     def calibrate(self, calibration_factor):
         if self.last_value is None:
             self.read_value()
-
         self.last_value *= calibration_factor
         return self.last_value
 
-    # funkcja zwracajaca ostatni pomiar tempetury
     def get_last_value(self):
         if self.last_value is None:
-            return self.read_value()
-
+            self.read_value()
         return self.last_value
 
-    # funkcja uruchamiajaca sensor
     def start(self):
         self.start_time = datetime.now()
         self.active = True
 
-    # funkcja wylaczajaca sensor
     def stop(self):
         self.active = False
 
-    # funkcja zwracajaca opis sensora
+    def register_callback(self, callback):
+        self._callbacks.append(callback)
+
     def __str__(self):
         return f"Sensor(id={self.sensor_id}, name={self.name}, unit={self.unit}, active={self.active})"
 
-if __name__ == "__main__":
-    sensor1 = Sensor(name="Sensor 1", unit="C", min_value=0, max_value=100)
-    sensor2 = Sensor(name="Sensor 2", unit="F", min_value=-35, max_value=150)
-
-    # wyswietlenie argumentow klas (automatyczna aktualizacja id)
-    print(sensor1.__str__())
-    print(sensor2.__str__())
-
-    # sensor1.start_reading() # wyrzucenie Exception: Sensor Sensor 1 is off.
-
-    sensor1.start()
-    for i in range(10):
-        sensor1.read_value()
-
-
-
-
-
+    @classmethod
+    def reset_type_counters(cls):
+        Sensor._type_counters = {}

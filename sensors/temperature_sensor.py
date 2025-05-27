@@ -1,51 +1,36 @@
-from datetime import datetime
-from typing import override
-
-from sensors.sensor import Sensor
 import time
-import numpy as np
 import threading
+from datetime import datetime
+import numpy as np
+from sensors.sensor import Sensor
+from logger.logger import Logger
 
 class TemperatureSensor(Sensor):
-    def __init__(self, name="Temperature Sensor", unit="°C", min_value=-15, max_value=35, frequency=1):
+    def __init__(self, name="Temperature Sensor", unit="°C", min_value=-15, max_value=35, frequency=1, logger=None):
         super().__init__(name, unit, min_value, max_value, frequency)
 
-        # zakres temperatur na podstawie pory roku i pory dnia
+        self.logger = logger
+        if self.logger:
+            # self.logger.set_sensor_context(self.sensor_id, self.name, self.unit)
+            self.register_callback(self.logger.log_reading)
+
         self.temperature_ranges = {
-            'winter': {
-                'night': (-15, -5),
-                'day': (-5, 2),
-                'evening': (-10, -3)
-            },
-            'spring': {
-                'night': (0, 5),
-                'day': (10, 18),
-                'evening': (6, 12)
-            },
-            'summer': {
-                'night': (15, 20),
-                'day': (25, 35),
-                'evening': (18, 25)
-            },
-            'autumn': {
-                'night': (5, 10),
-                'day': (10, 18),
-                'evening': (7, 12)
-            }
+            'winter': {'night': (-15, -5), 'day': (-5, 2), 'evening': (-10, -3)},
+            'spring': {'night': (0, 5), 'day': (10, 18), 'evening': (6, 12)},
+            'summer': {'night': (15, 20), 'day': (25, 35), 'evening': (18, 25)},
+            'autumn': {'night': (5, 10), 'day': (10, 18), 'evening': (7, 12)}
         }
 
-    # funkcja zwracajaca pore roku na podstawie arg aktualnego miesiaca
     def get_season(self, month):
-        if month in [12,1,2]:
+        if month in [12, 1, 2]:
             return 'winter'
-        elif month in [3,4,5]:
+        elif month in [3, 4, 5]:
             return 'spring'
-        elif month in [6,7,8]:
+        elif month in [6, 7, 8]:
             return 'summer'
         else:
             return 'autumn'
 
-    # funkcja zwracajaca pore dnia na podstawie arg aktulnej godziny
     def get_time_period(self, hour):
         if 0 <= hour < 8:
             return 'night'
@@ -54,7 +39,6 @@ class TemperatureSensor(Sensor):
         else:
             return 'evening'
 
-    @override
     def read_value(self):
         if not self.active:
             raise Exception(f"Sensor {self.name} is off.")
@@ -69,48 +53,39 @@ class TemperatureSensor(Sensor):
         self.last_value = value
         self.last_read_time = now
 
+        for callback in self._callbacks:
+            callback(self.sensor_id, now, value, self.unit)
+
         print(f"{now.strftime('%Y-%m-%d %H:%M:%S')} = {self.last_value}{self.unit}")
 
-
-    # funkcja ktora odczytuje temperature we wskazanej czestotliwosci
     def read_loop(self):
         interval = 1 / self.frequency
-        while not self.stop_tread:
+        while not self.stop_thread:
             self.read_value()
             time.sleep(interval)
 
-
-    # funkcja ktora uruchamia watek z odczytywaniem temperatur
     def start_reading(self):
-        # sprawdz czy sensor nie jest wlaczony
         if not self.active:
             raise Exception(f"Sensor {self.name} is off.")
-        # sprawdz czy watek juz istnieje oraz jest aktywny a jezeli tak to nie uruchamiaj po raz drugi.
         if self.reading_thread and self.reading_thread.is_alive():
             return
-        self.stop_tread = False
+        self.stop_thread = False
         self.reading_thread = threading.Thread(target=self.read_loop)
         self.reading_thread.start()
 
-    # funkcja wylaczenia watku z odczytywaniem temperatury
     def stop_reading(self):
-        self.stop_tread = True
-        # upewnia zeby zablokowac wykonanie dalszego kodu w glownym watku dopoki wskazany watek sie nie zakonczy.
+        self.stop_thread = True
         if self.reading_thread:
             self.reading_thread.join()
 
 if __name__ == '__main__':
-    tempSensor = TemperatureSensor()
+    logger = Logger("../config.json")
 
-    # wlaczenie i odczytywanie pomiarow temperatury, po 5s zakoncz pomiary i wylacz czujnik
+    tempSensor = TemperatureSensor(logger=logger)
     tempSensor.start()
     tempSensor.start_reading()
 
-    time.sleep(5)
+    time.sleep(10)
 
     tempSensor.stop_reading()
     tempSensor.stop()
-
-
-
-
