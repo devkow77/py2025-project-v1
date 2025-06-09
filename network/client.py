@@ -15,6 +15,9 @@ from sensors.light_sensor import LightSensor
 from logger.logger import Logger
 
 def main():
+    # Pobierz nazwę klienta z argumentów, domyślnie "default_client"
+    client_name = sys.argv[1] if len(sys.argv) > 1 else "default_client"
+
     # Inicjalizacja sensorów
     temp = TemperatureSensor()
     hum = HumiditySensor()
@@ -51,12 +54,14 @@ def main():
                     value = s.get_last_value()
                     timestamp = datetime.now()
 
+                    sensor_id = f"({client_name}){s.name}"
+
                     # Logowanie lokalne
-                    logger.log_reading(sensor_id=s.name, timestamp=timestamp, value=value, unit=s.unit)
+                    logger.log_reading(sensor_id=sensor_id, timestamp=timestamp, value=value, unit=s.unit)
 
                     # Wysyłka danych do serwera
                     payload = {
-                        "sensor_id": s.name,
+                        "sensor_id": sensor_id,
                         "timestamp": timestamp.isoformat(),
                         "value": value,
                         "unit": s.unit
@@ -66,7 +71,7 @@ def main():
                         sock.sendall(msg)
                     except (BrokenPipeError, ConnectionResetError) as e:
                         print(f"[CLIENT] Połączenie z serwerem przerwane: {e}")
-                        return  # wyjdź z programu lub możesz dodać próbę ponownego połączenia
+                        return  # możesz też dodać ponowne łączenie jeśli chcesz
 
                     time.sleep(0.2)  # krótkie opóźnienie między sensorami
                 time.sleep(1)  # opóźnienie pomiędzy cyklami odczytu
