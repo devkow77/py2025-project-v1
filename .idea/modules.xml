@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/py2025-project-v1.iml" filepath="$PROJECT_DIR$/.idea/py2025-project-v1.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../tcp/.idea/tcp.iml" filepath="$PROJECT_DIR$/../tcp/.idea/tcp.iml" />
     </modules>
   </component>
 </project>
