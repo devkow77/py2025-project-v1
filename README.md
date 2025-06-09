@@ -1,3 +1,7 @@
+# Komendy po otworzeniu folderu aby uruchomić aplikacje (terminal)
+- python server_gui.py (uruchomienie servera z gui)
+- python network/client.py nazwa_klienta
+
 # py2025-project-v1
 
 ## Temat projektu:
